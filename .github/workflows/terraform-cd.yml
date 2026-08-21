@@ -1,0 +1,53 @@
+name: 'Terraform CD (Deploy)'
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: terraform-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 'Deploy Infrastruttura'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      - name: Configura credenziali AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-south-1
+
+      - name: Create Kubernetes KinD Cluster
+        uses: helm/kind-action@v1.10.0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # Step da aggiungere prima di Terraform Init
+      - name: Scansione Sicurezza IaC con Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          hide-progress: false
+          format: 'table'
+          exit-code: '0' # Mettiamo 0 per vedere i warning senza bloccare subito la build, o '1' per bloccarla in caso di errori gravi
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+          TF_VAR_admin_cidr: ${{ secrets.TF_VAR_ADMIN_CIDR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var="app_image_tag=latest"
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+          TF_VAR_admin_cidr: ${{ secrets.TF_VAR_ADMIN_CIDR }}
