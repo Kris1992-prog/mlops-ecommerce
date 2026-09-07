@@ -13,9 +13,6 @@ jobs:
   deploy:
     name: 'Deploy Infrastruttura'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: environments/dev
 
     steps:
       - name: Checkout del codice
@@ -33,6 +30,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Scansione Sicurezza IaC con Trivy
         uses: aquasecurity/trivy-action@master
@@ -43,12 +42,14 @@ jobs:
           exit-code: '0'
 
       - name: Terraform Init
+        working-directory: environments/dev
         run: terraform init
         env:
           TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
           TF_VAR_admin_cidr: ${{ secrets.TF_VAR_ADMIN_CIDR }}
 
       - name: Terraform Apply
+        working-directory: environments/dev
         run: terraform apply -auto-approve -var="app_image_tag=latest"
         env:
           TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}

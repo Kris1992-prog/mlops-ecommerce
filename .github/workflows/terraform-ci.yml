@@ -14,9 +14,6 @@ jobs:
   terraform-ci:
     name: 'Terraform Fmt, Validate & Plan'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: environments/dev
 
     steps:
       - name: Checkout del codice
@@ -34,20 +31,26 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Terraform Init
+        working-directory: environments/dev
         run: terraform init
 
       - name: Controllo Formattazione (fmt)
+        working-directory: environments/dev
         run: terraform fmt -check
 
       - name: Validazione Codice (validate)
+        working-directory: environments/dev
         run: terraform validate
         env:
           TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
           TF_VAR_admin_cidr: ${{ secrets.TF_VAR_ADMIN_CIDR }}
 
       - name: Anteprima Modifiche (plan)
+        working-directory: environments/dev
         run: terraform plan -no-color -input=false -lock=false
         env:
           TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
