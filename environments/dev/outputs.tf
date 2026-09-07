@@ -1,24 +1,19 @@
-output "ec2_public_ip" {
-  description = "Indirizzo IP pubblico del server EC2 / K3s"
-  value       = module.ec2.public_ip
-}
-
-output "rds_endpoint" {
-  description = "Endpoint del Database RDS MySQL"
-  value       = module.rds.db_endpoint
-}
-
 output "s3_bucket_name" {
-  description = "Nome del bucket S3 principale"
-  value       = module.s3.bucket_id
+  value       = module.ml_infra.bucket_name
+  description = "Nome del bucket S3 per i modelli ML"
 }
 
-output "s3_log_bucket_name" {
-  description = "Nome del bucket S3 per i log"
-  value       = module.s3.log_bucket_id
+output "ecr_ml_api_url" {
+  value       = module.ml_infra.ecr_ml_api_url
+  description = "URL ECR per il servizio API ML"
 }
 
-output "secrets_arn" {
-  description = "ARN del Secret su AWS Secrets Manager"
-  value       = module.secrets.secret_arn
+output "ecr_ml_trainer_url" {
+  value       = module.ml_infra.ecr_ml_trainer_url
+  description = "URL ECR per il trainer ML"
+}
+
+output "ecr_llm_gateway_url" {
+  value       = module.ml_infra.ecr_llm_gateway_url
+  description = "URL ECR per il gateway LLM"
 }

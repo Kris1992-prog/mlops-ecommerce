@@ -4,6 +4,8 @@
 *.tfstate.backup
 *.tfvars
 .terraform.lock.hcl
+.tfplan
+
 
 # Python & ML artifacts
 __pycache__/
