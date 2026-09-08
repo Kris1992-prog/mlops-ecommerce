@@ -76,6 +76,8 @@ resource "kubernetes_secret_v1" "mysql_credentials" {
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "mysql_pvc" {
+  wait_until_bound = false
+
   metadata {
     name      = "mysql-pvc"
     namespace = kubernetes_namespace_v1.ml.metadata[0].name
@@ -89,6 +91,8 @@ resource "kubernetes_persistent_volume_claim_v1" "mysql_pvc" {
 }
 
 resource "kubernetes_deployment_v1" "mysql" {
+  wait_for_rollout = false
+
   metadata {
     name      = "mysql"
     namespace = kubernetes_namespace_v1.ml.metadata[0].name
@@ -177,6 +181,7 @@ resource "kubernetes_secret_v1" "db_credentials" {
 
 resource "kubernetes_deployment_v1" "ecommerce_deployment" {
   wait_for_rollout = false
+
   metadata {
     name   = "ecommerce-deployment-${var.environment}"
     labels = { app = local.app_label }
@@ -234,8 +239,8 @@ resource "kubernetes_deployment_v1" "ecommerce_deployment" {
           }
           readiness_probe {
             http_get { 
-            path = "/"
-            port = local.app_port 
+              path = "/"
+              port = local.app_port 
             }
             initial_delay_seconds = 10
             period_seconds        = 10
@@ -243,8 +248,8 @@ resource "kubernetes_deployment_v1" "ecommerce_deployment" {
           }
           liveness_probe {
             http_get { 
-            path = "/"
-            port = local.app_port 
+              path = "/"
+              port = local.app_port 
             }
             initial_delay_seconds = 20
             period_seconds        = 20
@@ -315,6 +320,8 @@ resource "kubernetes_secret_v1" "ml_config" {
 }
 
 resource "kubernetes_deployment_v1" "recommendation_api" {
+  wait_for_rollout = false
+
   metadata {
     name      = "recommendation-api"
     namespace = kubernetes_namespace_v1.ml.metadata[0].name
@@ -334,12 +341,10 @@ resource "kubernetes_deployment_v1" "recommendation_api" {
           image_pull_policy = "IfNotPresent"
           port { container_port = 8000 }
           
-          # Variabili esistenti da secret
           env_from {
             secret_ref { name = kubernetes_secret_v1.ml_config.metadata[0].name }
           }
 
-          # Aggiungiamo qui la variabile d'ambiente per Ollama
           env {
             name  = "OLLAMA_URL"
             value = "http://ollama.ml.svc.cluster.local:11434"
@@ -356,8 +361,8 @@ resource "kubernetes_deployment_v1" "recommendation_api" {
 
           liveness_probe {
             http_get { 
-            path = "/health"
-            port = 8000 
+              path = "/health"
+              port = 8000 
             }
             initial_delay_seconds = 30
             period_seconds        = 10
@@ -365,8 +370,8 @@ resource "kubernetes_deployment_v1" "recommendation_api" {
           }
           readiness_probe {
             http_get { 
-            path = "/ready"
-            port = 8000 
+              path = "/ready"
+              port = 8000 
             }
             initial_delay_seconds = 10
             period_seconds        = 5
@@ -385,9 +390,9 @@ resource "kubernetes_service_v1" "recommendation_api" {
   }
   spec {
     selector = { app = "recommendation-api" }
-   port { 
-    port = 80 
-    target_port = 8000 
+    port { 
+      port        = 80 
+      target_port = 8000 
     }
     type = "ClusterIP"
   }
@@ -395,8 +400,8 @@ resource "kubernetes_service_v1" "recommendation_api" {
 
 resource "kubernetes_ingress_v1" "recommendation_ingress" {
   metadata {
-    name      = "recommendation-ingress"
-    namespace = kubernetes_namespace_v1.ml.metadata[0].name
+    name        = "recommendation-ingress"
+    namespace   = kubernetes_namespace_v1.ml.metadata[0].name
     annotations = { "nginx.ingress.kubernetes.io/rewrite-target" = "/" }
   }
   spec {
@@ -460,6 +465,8 @@ resource "kubernetes_cron_job_v1" "recommendation_retrain_cron" {
 # Progetto 2 — Ollama LLM (phi3:mini su CPU)
 # ------------------------------------------------------------------------------
 resource "kubernetes_persistent_volume_claim_v1" "ollama_pvc" {
+  wait_until_bound = false
+
   metadata {
     name      = "ollama-pvc"
     namespace = kubernetes_namespace_v1.ml.metadata[0].name
@@ -473,6 +480,8 @@ resource "kubernetes_persistent_volume_claim_v1" "ollama_pvc" {
 }
 
 resource "kubernetes_stateful_set_v1" "ollama" {
+  wait_for_rollout = false
+
   metadata {
     name      = "ollama"
     namespace = kubernetes_namespace_v1.ml.metadata[0].name
@@ -496,7 +505,7 @@ resource "kubernetes_stateful_set_v1" "ollama" {
             value = "0.0.0.0"
           }
           volume_mount {
-            name      = "ollama-data"
+            name       = "ollama-data"
             mount_path = "/root/.ollama"
           }
           resources {
@@ -534,7 +543,7 @@ resource "kubernetes_stateful_set_v1" "ollama" {
             http_get { 
               path = "/api/tags" 
               port = 11434 
-              }
+            }
             initial_delay_seconds = 60
             period_seconds        = 20
             failure_threshold     = 3
@@ -581,6 +590,8 @@ resource "kubernetes_config_map_v1" "llm_gateway_config" {
 }
 
 resource "kubernetes_deployment_v1" "llm_gateway" {
+  wait_for_rollout = false
+
   metadata {
     name      = "llm-gateway"
     namespace = kubernetes_namespace_v1.ml.metadata[0].name
@@ -611,7 +622,7 @@ resource "kubernetes_deployment_v1" "llm_gateway" {
             http_get { 
               path = "/health" 
               port = 8001 
-              }
+            }
             initial_delay_seconds = 10
             period_seconds        = 10
             failure_threshold     = 3
@@ -649,8 +660,8 @@ resource "kubernetes_service_v1" "llm_gateway" {
 
 resource "kubernetes_ingress_v1" "llm_gateway_ingress" {
   metadata {
-    name      = "llm-gateway-ingress"
-    namespace = kubernetes_namespace_v1.ml.metadata[0].name
+    name        = "llm-gateway-ingress"
+    namespace   = kubernetes_namespace_v1.ml.metadata[0].name
     annotations = { "nginx.ingress.kubernetes.io/rewrite-target" = "/" }
   }
   spec {
