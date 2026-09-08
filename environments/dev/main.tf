@@ -45,7 +45,7 @@ module "k8s" {
   ml_trainer_image  = "${module.ml_infra.ecr_ml_trainer_url}:latest"
   llm_gateway_image = "${module.ml_infra.ecr_llm_gateway_url}:latest"
 
-  ecr_registry_id           = module.ml_infra.ecr_registry_id
+  ecr_registry_id          = module.ml_infra.ecr_registry_id
   ml_aws_access_key_id     = module.ml_infra.aws_access_key_id
   ml_aws_secret_access_key = module.ml_infra.aws_secret_access_key
 
