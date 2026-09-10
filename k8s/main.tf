@@ -5,6 +5,9 @@ locals {
   ml_namespace   = "ml"
 }
 
+# Provider Data per token ECR
+data "aws_ecr_authorization_token" "token" {}
+
 # ------------------------------------------------------------------------------
 # Namespace ML
 # ------------------------------------------------------------------------------
@@ -37,7 +40,7 @@ resource "helm_release" "ingress_nginx" {
 }
 
 # ------------------------------------------------------------------------------
-# ECR imagePullSecret (condiviso da tutti i Deployment che usano ECR)
+# ECR imagePullSecret
 # ------------------------------------------------------------------------------
 resource "kubernetes_secret_v1" "ecr_pull_secret" {
   metadata {
@@ -47,10 +50,8 @@ resource "kubernetes_secret_v1" "ecr_pull_secret" {
   data = {
     ".dockerconfigjson" = jsonencode({
       auths = {
-        "https://${var.ecr_registry_id}.dkr.ecr.${var.aws_region}.amazonaws.com" = {
-          username = "AWS"
-          password = var.ml_aws_secret_access_key
-          auth     = base64encode("AWS:${var.ml_aws_secret_access_key}")
+        "${var.ecr_registry_id}.dkr.ecr.${var.aws_region}.amazonaws.com" = {
+          auth = data.aws_ecr_authorization_token.token.authorization_token
         }
       }
     })
@@ -160,7 +161,8 @@ resource "kubernetes_service_v1" "mysql" {
 # ------------------------------------------------------------------------------
 resource "kubernetes_config_map_v1" "db_config" {
   metadata {
-    name = "db-config-${var.environment}"
+    name      = "db-config-${var.environment}"
+    namespace = kubernetes_namespace_v1.ml.metadata[0].name
   }
   data = {
     DB_HOST = "mysql.${local.ml_namespace}.svc.cluster.local"
@@ -170,7 +172,8 @@ resource "kubernetes_config_map_v1" "db_config" {
 
 resource "kubernetes_secret_v1" "db_credentials" {
   metadata {
-    name = "db-credentials-${var.environment}"
+    name      = "db-credentials-${var.environment}"
+    namespace = kubernetes_namespace_v1.ml.metadata[0].name
   }
   data = {
     DB_USER = var.mysql_user
@@ -183,8 +186,9 @@ resource "kubernetes_deployment_v1" "ecommerce_deployment" {
   wait_for_rollout = false
 
   metadata {
-    name   = "ecommerce-deployment-${var.environment}"
-    labels = { app = local.app_label }
+    name      = "ecommerce-deployment-${var.environment}"
+    namespace = kubernetes_namespace_v1.ml.metadata[0].name
+    labels    = { app = local.app_label }
   }
   spec {
     replicas = var.app_replicas
@@ -192,6 +196,9 @@ resource "kubernetes_deployment_v1" "ecommerce_deployment" {
     template {
       metadata { labels = { app = local.app_label } }
       spec {
+        image_pull_secrets {
+          name = kubernetes_secret_v1.ecr_pull_secret.metadata[0].name
+        }
         container {
           name              = "ecommerce-app"
           image             = local.app_image_full
@@ -263,7 +270,10 @@ resource "kubernetes_deployment_v1" "ecommerce_deployment" {
 }
 
 resource "kubernetes_service_v1" "ecommerce_service" {
-  metadata { name = "ecommerce-service-${var.environment}" }
+  metadata { 
+    name      = "ecommerce-service-${var.environment}"
+    namespace = kubernetes_namespace_v1.ml.metadata[0].name
+  }
   spec {
     type     = "NodePort"
     selector = { app = local.app_label }
@@ -278,8 +288,8 @@ resource "kubernetes_service_v1" "ecommerce_service" {
 
 resource "kubernetes_ingress_v1" "ecommerce_ingress" {
   metadata {
-    name        = "ecommerce-ingress-${var.environment}"
-    annotations = { "nginx.ingress.kubernetes.io/rewrite-target" = "/" }
+    name      = "ecommerce-ingress-${var.environment}"
+    namespace = kubernetes_namespace_v1.ml.metadata[0].name
   }
   spec {
     ingress_class_name = "nginx"
@@ -347,7 +357,7 @@ resource "kubernetes_deployment_v1" "recommendation_api" {
 
           env {
             name  = "OLLAMA_URL"
-            value = "http://ollama.ml.svc.cluster.local:11434"
+            value = "http://ollama.${local.ml_namespace}.svc.cluster.local:11434"
           }
           env {
             name  = "OLLAMA_MODEL"
@@ -400,9 +410,8 @@ resource "kubernetes_service_v1" "recommendation_api" {
 
 resource "kubernetes_ingress_v1" "recommendation_ingress" {
   metadata {
-    name        = "recommendation-ingress"
-    namespace   = kubernetes_namespace_v1.ml.metadata[0].name
-    annotations = { "nginx.ingress.kubernetes.io/rewrite-target" = "/" }
+    name      = "recommendation-ingress"
+    namespace = kubernetes_namespace_v1.ml.metadata[0].name
   }
   spec {
     ingress_class_name = "nginx"
@@ -462,7 +471,7 @@ resource "kubernetes_cron_job_v1" "recommendation_retrain_cron" {
 }
 
 # ------------------------------------------------------------------------------
-# Progetto 2 — Ollama LLM (phi3:mini su CPU)
+# Ollama LLM (phi3:mini su CPU)
 # ------------------------------------------------------------------------------
 resource "kubernetes_persistent_volume_claim_v1" "ollama_pvc" {
   wait_until_bound = false
@@ -499,7 +508,7 @@ resource "kubernetes_stateful_set_v1" "ollama" {
           image             = "ollama/ollama:latest"
           image_pull_policy = "IfNotPresent"
           command           = ["/bin/sh", "-c"]
-          args              = ["ollama serve & sleep 3 && ollama pull phi3:mini"]
+          args              = ["ollama serve & until curl -s http://localhost:11434/api/tags >/dev/null; do sleep 1; done && ollama pull phi3:mini"]
           env {
             name  = "OLLAMA_HOST"
             value = "0.0.0.0"
@@ -527,8 +536,8 @@ resource "kubernetes_stateful_set_v1" "ollama" {
             mount_path = "/root/.ollama"
           }
           resources {
-            requests = { cpu = "500m", memory = "1Gi" }
-            limits   = { cpu = "2000m", memory = "2Gi" }
+            requests = { cpu = "1000m", memory = "2Gi" }
+            limits   = { cpu = "2000m", memory = "4Gi" }
           }
           readiness_probe {
             http_get { 
@@ -660,9 +669,8 @@ resource "kubernetes_service_v1" "llm_gateway" {
 
 resource "kubernetes_ingress_v1" "llm_gateway_ingress" {
   metadata {
-    name        = "llm-gateway-ingress"
-    namespace   = kubernetes_namespace_v1.ml.metadata[0].name
-    annotations = { "nginx.ingress.kubernetes.io/rewrite-target" = "/" }
+    name      = "llm-gateway-ingress"
+    namespace = kubernetes_namespace_v1.ml.metadata[0].name
   }
   spec {
     ingress_class_name = "nginx"
