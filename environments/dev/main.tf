@@ -7,33 +7,33 @@ module "ml_infra" {
 # ------------------------------------------------------------------------------
 # Import delle risorse AWS esistenti nello stato di Terraform
 # ------------------------------------------------------------------------------
- import {
+import {
   to = module.ml_infra.aws_s3_bucket.ml_models
   id = "kris-ecommerce-ml-dev"
- }
+}
 
- import {
+import {
   to = module.ml_infra.aws_ecr_repository.ml_api
   id = "ml-recommendations-api"
- }
+}
 
- import {
+import {
   to = module.ml_infra.aws_ecr_repository.ml_trainer
   id = "ml-recommendations-trainer"
- }
+}
 
- import {
+import {
   to = module.ml_infra.aws_ecr_repository.llm_gateway
   id = "llm-gateway"
- }
+}
 
- import {
+import {
   to = module.ml_infra.aws_iam_user.k8s_ml_user
   id = "k8s-mlops-s3-user-dev"
- }
+}
 
 # ------------------------------------------------------------------------------
-# Modulo Kubernetes
+# Modulo Kubernetes 
 # ------------------------------------------------------------------------------
 module "k8s" {
   source          = "../../k8s"
