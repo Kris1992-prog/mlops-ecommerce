@@ -27,10 +27,10 @@ import {
   id = "llm-gateway"
 }
 
-# import {
-#  to = module.ml_infra.aws_iam_user.k8s_ml_user
-#  id = "k8s-mlops-s3-user-dev"
-# }
+import {
+  to = module.ml_infra.aws_iam_user.k8s_ml_user
+  id = "k8s-mlops-s3-user-dev"
+}
 
 # ------------------------------------------------------------------------------
 # Modulo Kubernetes 
