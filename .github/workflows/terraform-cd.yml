@@ -38,7 +38,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Esegui la build (specificando il path del Dockerfile se si trova in una sottocartella, es. ./app)
-          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG -t $REGISTRY/$REPOSITORY:latest .
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG -t $REGISTRY/$REPOSITORY:latest ./retrain
           # Effettua il push di entrambe le etichette su AWS ECR
           docker push $REGISTRY/$REPOSITORY --all-tags
 
