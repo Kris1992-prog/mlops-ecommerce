@@ -56,3 +56,8 @@ module "k8s" {
 
   depends_on = [module.ml_infra]
 }
+
+import {
+  to = module.ml_infra.aws_iam_access_key.k8s_ml_user_key
+  id = "AKIA5AVODB7RX3RXPURH"
+}
